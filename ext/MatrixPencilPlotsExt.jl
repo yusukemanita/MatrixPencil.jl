@@ -1,6 +1,7 @@
 module MatrixPencilPlotsExt
 
-using MatrixPencil
+# using MatrixPencil
+include("../src/MatrixPencil.jl")
 using Plots
 using LaTeXStrings
 
@@ -14,7 +15,7 @@ Stabilization diagram: x = Re(ω), y = model order M.
 Stable poles are coloured by Im(ω) (viridis). Unstable poles are shown in
 grey. Optional `omegas_ref` adds faint vertical reference lines.
 """
-function MatrixPencil.plot_stabilization(data;
+function plot_stabilization(data;
                                           omegas_ref = ComplexF64[],
                                           re_lim     = (-2.0, 2.0),
                                           im_lim     = (-0.5, 0.0),
@@ -55,7 +56,7 @@ Complex ω-plane plot with four layers:
 3. Reference frequencies from `theory_dict` (red ×)
 4. Accepted cluster means with labels (black ●)
 """
-function MatrixPencil.plot_complex_plane(data, modes;
+function plot_complex_plane(data, modes;
                                           theory_dict = Dict{String, ComplexF64}(),
                                           re_lim      = (-1.5, 1.5),
                                           im_lim      = (-0.5, 0.0),
@@ -67,10 +68,10 @@ function MatrixPencil.plot_complex_plane(data, modes;
     # Layer 1: unstable poles
     p = scatter(data.re[nm], data.im[nm];
         ms = ms_all[nm], color = :gray, alpha = 0.15, markerstrokewidth = 0,
-        label = "Unstable poles",
+        label = "",
         xlabel = L"\Re\,\omega", ylabel = L"\Im\,\omega",
-        title = title_str, frame = :box,
-        xlim = re_lim, ylim = im_lim, legend = :bottomright)
+        title = title_str, 
+        frame = :box, xlim = re_lim, ylim = im_lim, legend = :topright)
 
     # Layer 2: stable poles (coloured by log amplitude)
     if any(sm)
@@ -78,7 +79,7 @@ function MatrixPencil.plot_complex_plane(data, modes;
             ms = ms_all[sm],
             zcolor = log10.(data.amp[sm] .+ 1e-30),
             c = :viridis, markerstrokewidth = 0,
-            label = "Stable poles", colorbar_title = L"\log_{10}|A|")
+            label = "", colorbar_title = L"\log_{10}|A|")
     end
 
     # Layer 3: reference frequencies (within plot limits)
@@ -89,7 +90,7 @@ function MatrixPencil.plot_complex_plane(data, modes;
                  (im_lim[1] .< ref_im .< im_lim[2])
         scatter!(p, ref_re[mask], ref_im[mask];
             marker = :xcross, ms = 6, color = :red, alpha = 0.6,
-            markerstrokewidth = 1.5, label = L"\omega_\mathrm{ref}")
+            markerstrokewidth = 1.5, label = "")
     end
 
     # Layer 4: accepted cluster means with labels
@@ -99,7 +100,7 @@ function MatrixPencil.plot_complex_plane(data, modes;
         re_lim[1] < real(ω) < re_lim[2] || continue
         im_lim[1] < imag(ω) < im_lim[2] || continue
         scatter!(p, [real(ω)], [imag(ω)];
-            ms = 8, color = :black, markerstrokewidth = 0,
+            ms = 5, color = :black, markerstrokewidth = 0,
             marker = :circle, label = "")
         annotate!(p, real(ω), imag(ω) - dy,
                   text(m.label, 7, :black, :center))
