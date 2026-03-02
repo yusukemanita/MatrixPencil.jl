@@ -54,12 +54,6 @@ signal  →  stabilization_data()  →  cluster_poles()  →  classify_modes()
 | `matrix_pencil_method(y, L, dt, M)` | Basic MPM; returns all poles including growing modes |
 | `matrix_pencil_method_fb(y, L, dt, M)` | Forward-Backward MPM; filters to decaying modes (`Im(ω) < 0`) |
 
-### Signal Preprocessing
-
-| Function | Description |
-|----------|-------------|
-| `rational_filter(h, fs, ω0s)` | Remove specific frequency components in the frequency domain |
-| `signal_cleaning(h, fs, ω0s)` | Same as above with 10× zero-padding to suppress edge artifacts |
 
 ### Stabilization & Clustering
 
@@ -102,39 +96,41 @@ signal  →  stabilization_data()  →  cluster_poles()  →  classify_modes()
 ## Example: Gravitational Wave QNM Analysis
 
 ```julia
-using MatrixPencil, Plots
+using Plots
+include("/src/MatrixPencil.jl")
+include("/ext/MatrixPencilPlotsExt.jl")
 
 # Load ringdown signal
 signal = load_signal("ringdown.dat")
 dt     = 0.1
 
 # Collect stabilization data
-data = stabilization_data(signal, dt, 4:2:50;
+data = MatrixPencil.stabilization_data(signal, dt, 4:2:50;
     L_frac = 0.5,
     tol_re  = 1e-3,
     tol_im  = 1e-3)
 
 # Cluster with known 220 mode as anchor
 ω220 = 0.7473 - 0.0890im
-clusters = cluster_poles(data, signal, dt;
+clusters = MatrixPencil.cluster_poles(data, signal, dt;
     ω_known   = [ω220],
     ε_complex = 0.02)
 
 # Match to theory
 theory = Dict("220" => ω220, "221" => 0.6934 - 0.2739im)
-modes  = classify_modes(clusters, theory, signal, dt)
-print_mode_table(modes)
+modes  = MatrixPencil.classify_modes(clusters, theory, signal, dt)
+MatrixPencil.print_mode_table(modes)
 
 # Visualize
-plot_stabilization(data)
-plot_complex_plane(data, modes)
+MatrixPencilPlotsExt.plot_stabilization(data)
+MatrixPencilPlotsExt.plot_complex_plane(data, modes)
 ```
 
 ## Algorithm Details
 
 The Matrix Pencil Method decomposes a signal of the form
 
-$$y(t) = \sum_{k=1}^{M} A_k \, e^{i\omega_k t}$$
+$$y(t) = \sum_{k=1}^{M} A_k e^{i\omega_k t}$$
 
 by constructing a Hankel data matrix, computing its SVD to determine the model order, solving a Total Least Squares eigenvalue problem, and returning the complex frequencies $\omega_k$ and amplitudes $A_k$.
 
@@ -142,7 +138,42 @@ The Forward-Backward variant (Hua & Sarkar 1990) averages the forward and time-r
 
 **Stabilization**: Physical poles persist as model order increases; spurious poles do not. A pole at order $M$ is marked stable if a pole within tolerance `(tol_re, tol_im)` exists at order $M-1$.
 
-**Clustering**: Union-Find merges poles within complex-plane distance `ε_complex`. The tagged variant assigns each pole to the nearest known frequency first, then only merges poles sharing the same tag — preventing aliasing between near-degenerate modes.
+### Union-Find Clustering
+
+The clustering step groups stable poles that represent the same physical mode across different model orders. Two strategies are available.
+
+#### Simple mode (no prior knowledge)
+
+All pairs of stable poles $(z_i, z_j)$ are tested. If their complex-plane distance satisfies
+
+$$|z_i - z_j| < \varepsilon_{\text{complex}}$$
+
+The two poles are merged into the same cluster. This is a standard Union-Find with path-compression: each pole starts in its own set, and union operations progressively merge sets until no further merges are possible. The result is a partition of all stable poles into disjoint clusters.
+
+#### Tagged mode (`ω_known` provided)
+
+Used when two physical modes lie closer together than $2\varepsilon_{\text{complex}}$ (e.g. the QNM pair 220 / 221 in black-hole ringdown, which can be separated by $\lesssim 0.01$ in the complex plane).
+
+1. **Tag assignment** — Each stable pole is assigned to the nearest known frequency within `ε_assign`. Poles that fall outside `ε_assign` of every known frequency remain untagged (tag = 0).
+2. **Conditional merge** — Two poles are merged only if they are within `ε_complex` **and** do not carry different non-zero tags. Concretely, a pair $(i, j)$ is skipped when both are tagged and their tags differ. Untagged poles can merge freely with any other pole.
+
+This prevents poles belonging to distinct known modes from bleeding into the same cluster, while still grouping numerical scatter around each mode.
+
+#### Acceptance criteria
+
+After clustering, each cluster is accepted only if **all three** conditions hold:
+
+| Criterion | Parameter | Default | Meaning |
+|-----------|-----------|---------|---------|
+| Minimum pole count | `min_count` | 3 | Each cluster must contain at least this many poles |
+| Minimum model-order span | `min_M_span` | 5 | Poles must appear across at least this range of model orders $M_{\max} - M_{\min}$ |
+| Relative Im stability | `im_rel_tol` | 0.15 | Trimmed standard deviation of the imaginary part divided by its absolute mean must be below this threshold |
+
+The first two criteria reject isolated or short-lived artifacts. The third rejects clusters whose imaginary part (decay rate) is too scattered, indicating a numerical rather than physical pole.
+
+#### Cluster statistics
+
+Accepted cluster frequencies are reported as trimmed means and standard deviations (default: discard the outer 25% of values at each end) to suppress the influence of outlier poles at the edges of the model-order range.
 
 ## References
 
