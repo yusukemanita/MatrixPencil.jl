@@ -9,22 +9,12 @@ A Julia package for extracting complex resonance frequencies from time-domain si
 - **Stabilization diagrams** — Track pole persistence across model orders to distinguish physical modes from numerical artifacts
 - **Union-Find clustering** — Group stable poles in the complex plane; supports a tagged variant for near-degenerate modes
 - **Theory matching** — Match extracted clusters to reference frequencies and re-fit amplitudes via Vandermonde least squares
-- **Rational filtering** — FFT-based preprocessing to remove known frequency components before extraction
 - **Optional plotting** — Stabilization diagram and complex-plane visualization via a weak Plots.jl dependency
-
-## Installation
-
-```julia
-using Pkg
-Pkg.add(url="https://github.com/yourusername/MatrixPencil.jl")
-```
-
-Requires Julia ≥ 1.9.
 
 ## Quick Start
 
 ```julia
-using MatrixPencil
+include("MatrixPencil.jl")
 
 # Synthetic signal: two damped sinusoids
 dt = 0.1
