@@ -1,9 +1,8 @@
 module MatrixPencilPlotsExt
 
 using MatrixPencil
+import MatrixPencil: plot_stabilization, plot_complex_plane
 using Plots
-using LaTeXStrings
-
 # ── Stabilization diagram: Re(ω) vs model order M ────────────────────────────
 
 """
@@ -25,7 +24,7 @@ function plot_stabilization(data;
     p = scatter(data.re[nm], data.M[nm];
         ms = ms, color = :gray, alpha = 0.2, markerstrokewidth = 0,
         label = "",
-        xlabel = L"\mathrm{Re}(\omega)", ylabel = L"M",
+        xlabel = "Re(ω)", ylabel = "M",
         title = title_str, frame = :box, xlim = re_lim,
         legend = :topright)
 
@@ -34,7 +33,7 @@ function plot_stabilization(data;
         scatter!(p, data.re[sm][idx_s], data.M[sm][idx_s];
             zcolor = data.im[sm][idx_s], c = :viridis, clims = im_lim,
             ms = ms + 1, markerstrokewidth = 0,
-            label = "Stable", colorbar_title = L"\mathrm{Im}(\omega)")
+            label = "Stable", colorbar_title = "Im(ω)")
     end
 
     for ω_ref in omegas_ref
@@ -68,8 +67,8 @@ function plot_complex_plane(data, modes;
     p = scatter(data.re[nm], data.im[nm];
         ms = ms_all[nm], color = :gray, alpha = 0.15, markerstrokewidth = 0,
         label = "",
-        xlabel = L"\Re\,\omega", ylabel = L"\Im\,\omega",
-        title = title_str, 
+        xlabel = "Re(ω)", ylabel = "Im(ω)",
+        title = title_str,
         frame = :box, xlim = re_lim, ylim = im_lim, legend = :topright)
 
     # Layer 2: stable poles (coloured by log amplitude)
@@ -78,7 +77,7 @@ function plot_complex_plane(data, modes;
             ms = ms_all[sm],
             zcolor = log10.(data.amp[sm] .+ 1e-30),
             c = :viridis, markerstrokewidth = 0,
-            label = "", colorbar_title = L"\log_{10}|A|")
+            label = "", colorbar_title = "log₁₀|A|")
     end
 
     # Layer 3: reference frequencies (within plot limits)
