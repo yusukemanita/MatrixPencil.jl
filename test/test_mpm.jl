@@ -1,4 +1,4 @@
-@testset "matrix_pencil_method" begin
+@testset "matrix_pencil_method :basic" begin
     # Synthetic signal: two decaying sinusoids with known frequencies
     dt   = 0.1
     N    = 200
@@ -10,7 +10,7 @@
     y    = @. A1 * exp(-im * ω1 * t) + A2 * exp(-im * ω2 * t)
 
     L = N ÷ 2
-    omegas, amps = matrix_pencil_method(y, L, dt, 2)
+    omegas, amps = matrix_pencil_method(y, L, dt, 2; method = :basic)
 
     # Sort by real part for comparison
     idx = sortperm(real.(omegas))
@@ -20,7 +20,7 @@
     @test abs(ω_found[2] - ω2) < 1e-6
 end
 
-@testset "matrix_pencil_method_fb" begin
+@testset "matrix_pencil_method :fb" begin
     # Same signal with mild additive noise
     dt  = 0.1
     N   = 200
@@ -31,7 +31,7 @@ end
     y  .+= 1e-3 .* (randn(N) .+ im .* randn(N))
 
     L = N ÷ 2
-    omegas, _ = matrix_pencil_method_fb(y, L, dt, 4)
+    omegas, _ = matrix_pencil_method(y, L, dt, 4)   # :fb is the default
 
     # All returned poles must have Im(ω) < 0
     @test all(imag.(omegas) .< 0)

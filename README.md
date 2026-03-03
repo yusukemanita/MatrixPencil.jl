@@ -14,7 +14,7 @@ A Julia package for extracting complex resonance frequencies from time-domain si
 ## Quick Start
 
 ```julia
-include("MatrixPencil.jl")
+using MatrixPencil
 
 # Synthetic signal: two damped sinusoids
 dt = 0.1
@@ -51,8 +51,7 @@ signal  →  stabilization_data()  →  cluster_poles()  →  classify_modes()
 
 | Function | Description |
 |----------|-------------|
-| `matrix_pencil_method(y, L, dt, M)` | Basic MPM; returns all poles including growing modes |
-| `matrix_pencil_method_fb(y, L, dt, M)` | Forward-Backward MPM; filters to decaying modes (`Im(ω) < 0`) |
+| `matrix_pencil_method(y, L, dt, M; method=:fb)` | MPM with selectable variant: `:fb` (default, Forward-Backward, filters to decaying modes) or `:basic` (returns all poles) |
 
 
 ### Stabilization & Clustering
@@ -96,34 +95,31 @@ signal  →  stabilization_data()  →  cluster_poles()  →  classify_modes()
 ## Example: Gravitational Wave QNM Analysis
 
 ```julia
-using Plots
-include("/src/MatrixPencil.jl")
-include("/ext/MatrixPencilPlotsExt.jl")
+using MatrixPencil, Plots
 
 # Load ringdown signal
 signal = load_signal("ringdown.dat")
 dt     = 0.1
 
 # Collect stabilization data
-data = MatrixPencil.stabilization_data(signal, dt, 4:2:50;
-    L_frac = 0.5,
-    tol_re  = 1e-3,
-    tol_im  = 1e-3)
+data = stabilization_data(signal, dt, 4:2:50;
+    δ_re = 1e-3,
+    δ_im = 1e-3)
 
 # Cluster with known 220 mode as anchor
 ω220 = 0.7473 - 0.0890im
-clusters = MatrixPencil.cluster_poles(data, signal, dt;
+clusters = cluster_poles(data, signal, dt;
     ω_known   = [ω220],
     ε_complex = 0.02)
 
 # Match to theory
 theory = Dict("220" => ω220, "221" => 0.6934 - 0.2739im)
-modes  = MatrixPencil.classify_modes(clusters, theory, signal, dt)
-MatrixPencil.print_mode_table(modes)
+modes  = classify_modes(clusters, theory, signal, dt)
+print_mode_table(modes)
 
 # Visualize
-MatrixPencilPlotsExt.plot_stabilization(data)
-MatrixPencilPlotsExt.plot_complex_plane(data, modes)
+plot_stabilization(data)
+plot_complex_plane(data, modes)
 ```
 
 ## Algorithm Details

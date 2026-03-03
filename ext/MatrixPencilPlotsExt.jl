@@ -1,7 +1,6 @@
 module MatrixPencilPlotsExt
 
-# using MatrixPencil
-include("../src/MatrixPencil.jl")
+using MatrixPencil
 using Plots
 using LaTeXStrings
 
@@ -16,11 +15,11 @@ Stable poles are coloured by Im(ω) (viridis). Unstable poles are shown in
 grey. Optional `omegas_ref` adds faint vertical reference lines.
 """
 function plot_stabilization(data;
-                                          omegas_ref = ComplexF64[],
-                                          re_lim     = (-2.0, 2.0),
-                                          im_lim     = (-0.5, 0.0),
-                                          title_str  = "Stabilization diagram",
-                                          ms         = 3)
+                            omegas_ref = ComplexF64[],
+                            re_lim     = (-2.0, 2.0),
+                            im_lim     = (-0.5, 0.0),
+                            title_str  = "Stabilization diagram",
+                            ms         = 3)
     nm, sm = .!data.stable, data.stable
 
     p = scatter(data.re[nm], data.M[nm];
@@ -57,10 +56,10 @@ Complex ω-plane plot with four layers:
 4. Accepted cluster means with labels (black ●)
 """
 function plot_complex_plane(data, modes;
-                                          theory_dict = Dict{String, ComplexF64}(),
-                                          re_lim      = (-1.5, 1.5),
-                                          im_lim      = (-0.5, 0.0),
-                                          title_str   = "MPM poles in the complex ω plane")
+                            theory_dict = Dict{String, ComplexF64}(),
+                            re_lim      = (-1.5, 1.5),
+                            im_lim      = (-0.5, 0.0),
+                            title_str   = "MPM poles in the complex ω plane")
     nm     = .!data.stable
     sm     =  data.stable
     ms_all = MatrixPencil._amp_to_ms(data.amp)

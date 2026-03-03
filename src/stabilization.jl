@@ -5,13 +5,16 @@
 # previous model order.
 
 """
-    stabilization_data(signal, dt, M_range; δ_re, δ_im, im_lim, re_lim)
+    stabilization_data(signal, dt, M_range; method, δ_re, δ_im, im_lim, re_lim)
 
-Run FB-MPM for each model order in `M_range` and collect poles with
+Run MPM for each model order in `M_range` and collect poles with
 stability flags.
 
 A pole at order M is marked **stable** if there exists a pole at order M-1
 within absolute distance `δ_re` in Re(ω) and `δ_im` in Im(ω).
+
+# Arguments
+- `method` : `:fb` (default) for Forward-Backward MPM, or `:basic` for standard MPM
 
 # Returns
 `NamedTuple` with fields:
@@ -22,8 +25,9 @@ within absolute distance `δ_re` in Re(ω) and `δ_im` in Im(ω).
 - `stable` : Bool stability flag
 """
 function stabilization_data(signal, dt, M_range;
+                             method = :fb,
                              δ_re   = 0.01,
-                             δ_im   = 0.005,
+                             δ_im   = 0.01,
                              im_lim = (-0.5, 0.0),
                              re_lim = (-2.0, 2.0))
     all_M      = Int[]
@@ -35,7 +39,7 @@ function stabilization_data(signal, dt, M_range;
 
     for M in M_range
         L = length(signal) ÷ 2
-        poles, amps = matrix_pencil_method_fb(signal, L, dt, M)
+        poles, amps = matrix_pencil_method(signal, L, dt, M; method)
 
         mask  = (im_lim[1] .< imag.(poles) .< im_lim[2]) .&
                 (re_lim[1] .< real.(poles) .< re_lim[2])

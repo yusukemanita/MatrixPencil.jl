@@ -6,22 +6,41 @@
 # Forward-Backward averaging reference: Hua & Sarkar (1990)
 
 """
-    matrix_pencil_method(y, L, dt, M) -> (omegas, amplitudes)
+    matrix_pencil_method(y, L, dt, M; method=:fb) -> (omegas, amplitudes)
 
 Matrix Pencil Method (MPM) for estimating complex frequencies and amplitudes
 from a sampled signal `y`.
 
 # Arguments
-- `y`  : sampled signal (AbstractVector)
-- `L`  : pencil parameter (typically `length(y) ÷ 2`)
-- `dt` : sampling interval
-- `M`  : model order (number of poles to extract)
+- `y`      : sampled signal (AbstractVector)
+- `L`      : pencil parameter (typically `length(y) ÷ 2`)
+- `dt`     : sampling interval
+- `M`      : model order (number of poles to extract)
+- `method` : `:fb` (default) for Forward-Backward MPM, or `:basic` for standard MPM
+
+# Methods
+- `:fb`    — Forward-Backward MPM (Hua & Sarkar 1990). Combines forward and
+             backward Hankel matrices before SVD. More noise-robust; returns
+             only physically decaying modes (`Im(ω) < 0`).
+- `:basic` — Standard MPM. Returns all `M` poles including growing modes.
 
 # Returns
-- `omegas`     : complex frequencies ω = Re(ω) + i·Im(ω), length M
-- `amplitudes` : complex amplitudes (least-squares fit), length M
+- `omegas`     : complex frequencies ω = Re(ω) + i·Im(ω)
+- `amplitudes` : complex amplitudes (least-squares fit)
 """
-function matrix_pencil_method(y, L, dt, M)
+function matrix_pencil_method(y, L, dt, M; method = :fb)
+    if method === :fb
+        return _mpm_fb(y, L, dt, M)
+    elseif method === :basic
+        return _mpm_basic(y, L, dt, M)
+    else
+        error("Unknown method: $method. Use :fb or :basic")
+    end
+end
+
+# ── Internal implementations ───────────────────────────────────────────────────
+
+function _mpm_basic(y, L, dt, M)
     N = length(y)
     H = [y[i+j] for i in 1:N-L, j in 0:L]
 
@@ -53,24 +72,7 @@ function matrix_pencil_method(y, L, dt, M)
     return omegas, amplitudes
 end
 
-"""
-    matrix_pencil_method_fb(y, L, dt, M) -> (omegas, amplitudes)
-
-Forward-Backward Matrix Pencil Method with improved noise rejection.
-
-Combines forward and backward Hankel matrices before SVD, which suppresses
-noise and retains only physically decaying modes (Im(ω) < 0).
-
-# Arguments
-- `y`  : sampled signal (AbstractVector)
-- `L`  : pencil parameter (typically `length(y) ÷ 2`)
-- `dt` : sampling interval
-- `M`  : model order
-
-# Returns
-Only poles with `Im(ω) < 0` (physically decaying) are returned.
-"""
-function matrix_pencil_method_fb(y, L, dt, M)
+function _mpm_fb(y, L, dt, M)
     N = length(y)
 
     # Forward Hankel matrix: H_f[i,j] = y[i+j], size (N-L) × (L+1)

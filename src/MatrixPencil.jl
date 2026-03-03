@@ -42,7 +42,7 @@ include("stabilization.jl")
 include("classification.jl")
 include("clustering.jl")
 
-export matrix_pencil_method, matrix_pencil_method_fb
+export matrix_pencil_method
 export rational_filter, signal_cleaning
 export stabilization_data
 export ClusterResult, LabeledMode
