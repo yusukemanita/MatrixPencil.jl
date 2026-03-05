@@ -55,3 +55,53 @@ end
     @test all(data.im .< 0)
     @test any(data.stable)
 end
+
+@testset "classify_modes poly_groups" begin
+    dt = 0.01
+    N  = 512
+    t  = (0:N-1) .* dt
+
+    ω_A  = 1.5 - 0.05im
+    ω_p  = 0.8 - 0.08im    # primary ("prim")
+    ω_s  = 0.805 - 0.082im  # secondary ("sec"), very close to ω_p
+
+    A_A  = 2.0 + 0.0im
+    A_p  = 1.0 + 0.5im
+    A_s  = 0.3 - 0.1im
+
+    signal = @. A_A * exp(-im * ω_A * t) +
+                A_p * exp(-im * ω_p * t) +
+                A_s * exp(-im * ω_s * t)
+
+    theory = Dict("A" => ω_A, "prim" => ω_p, "sec" => ω_s)
+
+    # --- standard fit (no poly_groups): three separate modes ---
+    data     = stabilization_data(signal, dt, 10:5:40;
+                   im_lim=(-0.5, 0.0), re_lim=(0.0, 3.0))
+    clusters = cluster_poles(data, signal, dt;
+                   ω_known=[ω_A, ω_p, ω_s], ε_complex=0.003, ε_assign=0.05,
+                   min_count=3, min_M_span=5)
+    modes_std = classify_modes(clusters, theory, signal, dt)
+
+    @test all(m -> abs(m.amplitude_B) == 0, modes_std)
+
+    # --- poly fit: merge "prim" + "sec" into (A+Bt)exp(-i ω_p t) ---
+    modes_poly = classify_modes(clusters, theory, signal, dt;
+                     poly_groups=[["prim", "sec"]])
+
+    # "sec" must not appear in output
+    @test all(m -> m.label != "sec", modes_poly)
+
+    # "prim" must appear with nonzero B
+    idx = findfirst(m -> m.label == "prim", modes_poly)
+    @test idx !== nothing
+    @test abs(modes_poly[idx].amplitude_B) > 0
+
+    # "A" must be present and unchanged (B == 0)
+    idx_A = findfirst(m -> m.label == "A", modes_poly)
+    @test idx_A !== nothing
+    @test abs(modes_poly[idx_A].amplitude_B) == 0
+
+    # print_mode_table must not throw
+    @test_nowarn print_mode_table(modes_poly)
+end

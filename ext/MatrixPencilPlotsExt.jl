@@ -3,6 +3,8 @@ module MatrixPencilPlotsExt
 using MatrixPencil
 import MatrixPencil: plot_stabilization, plot_complex_plane
 using Plots
+using LaTeXStrings
+
 # ── Stabilization diagram: Re(ω) vs model order M ────────────────────────────
 
 """
@@ -24,16 +26,30 @@ function plot_stabilization(data;
     p = scatter(data.re[nm], data.M[nm];
         ms = ms, color = :gray, alpha = 0.2, markerstrokewidth = 0,
         label = "",
-        xlabel = "Re(ω)", ylabel = "M",
-        title = title_str, frame = :box, xlim = re_lim,
-        legend = :topright)
+        xlabel = L"\mathrm{Re}(\omega)",
+        ylabel = L"M",
+        title  = title_str,
+        frame  = :box, xlim = re_lim,
+        legend = :topright,
+        fontfamily     = "Times New Roman",
+        tickfontsize   = 11,
+        guidefontsize  = 13,
+        legendfontsize = 10,
+        titlefontsize  = 13,
+        size           = (700, 500),
+        dpi            = 300,
+        left_margin    = 5Plots.mm,
+        bottom_margin  = 5Plots.mm,
+        top_margin     = 5Plots.mm,
+        right_margin   = 15Plots.mm,
+        legend_background_color = RGBA(1, 1, 1, 0.7))
 
     if any(sm)
         idx_s = sortperm(data.im[sm], rev=true)
         scatter!(p, data.re[sm][idx_s], data.M[sm][idx_s];
             zcolor = data.im[sm][idx_s], c = :viridis, clims = im_lim,
             ms = ms + 1, markerstrokewidth = 0,
-            label = "Stable", colorbar_title = "Im(ω)")
+            label = "Stable", colorbar_title = "")
     end
 
     for ω_ref in omegas_ref
@@ -67,9 +83,23 @@ function plot_complex_plane(data, modes;
     p = scatter(data.re[nm], data.im[nm];
         ms = ms_all[nm], color = :gray, alpha = 0.15, markerstrokewidth = 0,
         label = "",
-        xlabel = "Re(ω)", ylabel = "Im(ω)",
-        title = title_str,
-        frame = :box, xlim = re_lim, ylim = im_lim, legend = :topright)
+        xlabel = L"\mathrm{Re}(\omega)",
+        ylabel = L"\mathrm{Im}(\omega)",
+        title  = title_str,
+        frame  = :box, xlim = re_lim, ylim = im_lim,
+        legend = :topright,
+        fontfamily     = "Times New Roman",
+        tickfontsize   = 11,
+        guidefontsize  = 13,
+        legendfontsize = 10,
+        titlefontsize  = 13,
+        size           = (700, 500),
+        dpi            = 300,
+        left_margin    = 5Plots.mm,
+        bottom_margin  = 5Plots.mm,
+        top_margin     = 5Plots.mm,
+        right_margin   = 15Plots.mm,
+        legend_background_color = RGBA(1, 1, 1, 0.7))
 
     # Layer 2: stable poles (coloured by log amplitude)
     if any(sm)
@@ -77,7 +107,7 @@ function plot_complex_plane(data, modes;
             ms = ms_all[sm],
             zcolor = log10.(data.amp[sm] .+ 1e-30),
             c = :viridis, markerstrokewidth = 0,
-            label = "", colorbar_title = "log₁₀|A|")
+            label = "", colorbar_title = "")
     end
 
     # Layer 3: reference frequencies (within plot limits)
@@ -86,22 +116,24 @@ function plot_complex_plane(data, modes;
         ref_im = Float64[imag(ω) for ω in values(theory_dict)]
         mask   = (re_lim[1] .< ref_re .< re_lim[2]) .&
                  (im_lim[1] .< ref_im .< im_lim[2])
-        scatter!(p, ref_re[mask], ref_im[mask];
-            marker = :xcross, ms = 6, color = :red, alpha = 0.6,
-            markerstrokewidth = 1.5, label = "")
+        if any(mask)
+            scatter!(p, ref_re[mask], ref_im[mask];
+                marker = :xcross, ms = 6, color = :red, alpha = 0.7,
+                markerstrokewidth = 1.5, label = "Theory")
+        end
     end
 
     # Layer 4: accepted cluster means with labels
-    dy = (im_lim[2] - im_lim[1]) * 0.04
+    dy = (im_lim[2] - im_lim[1]) * 0.05
     for m in modes
         ω = m.omega_mpm
         re_lim[1] < real(ω) < re_lim[2] || continue
         im_lim[1] < imag(ω) < im_lim[2] || continue
         scatter!(p, [real(ω)], [imag(ω)];
-            ms = 5, color = :black, markerstrokewidth = 0,
+            ms = 6, color = :black, markerstrokewidth = 0,
             marker = :circle, label = "")
         annotate!(p, real(ω), imag(ω) - dy,
-                  text(m.label, 7, :black, :center))
+                  text(m.label, 9, :black, :center, "Times New Roman"))
     end
 
     return p

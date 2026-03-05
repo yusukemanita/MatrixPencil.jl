@@ -9,6 +9,7 @@ A Julia package for extracting complex resonance frequencies from time-domain si
 - **Stabilization diagrams** — Track pole persistence across model orders to distinguish physical modes from numerical artifacts
 - **Union-Find clustering** — Group stable poles in the complex plane; supports a tagged variant for near-degenerate modes
 - **Theory matching** — Match extracted clusters to reference frequencies and re-fit amplitudes via Vandermonde least squares
+- **Polynomial amplitude fitting** — Fit nearly-degenerate modes as `(A + B·t)·exp(-i·ω·t)` (Jordan-block form) via `poly_groups` in `classify_modes`
 - **Optional plotting** — Stabilization diagram and complex-plane visualization via a weak Plots.jl dependency
 
 ## Quick Start
@@ -65,8 +66,8 @@ signal  →  stabilization_data()  →  cluster_poles()  →  classify_modes()
 
 | Function | Description |
 |----------|-------------|
-| `classify_modes(clusters, theory_dict, signal, dt)` | Match clusters to reference frequencies; re-fit all amplitudes jointly |
-| `print_mode_table(modes)` | Pretty-print a summary table of labeled modes |
+| `classify_modes(clusters, theory_dict, signal, dt; tol, poly_groups)` | Match clusters to reference frequencies; re-fit all amplitudes jointly; optionally fit degenerate mode groups as `(A + B·t)·exp(-i·ω·t)` |
+| `print_mode_table(modes)` | Pretty-print a summary table; shows `\|B\|` column automatically when any poly-group mode is present |
 
 ### Plotting (requires `Plots.jl`)
 
@@ -88,7 +89,8 @@ signal  →  stabilization_data()  →  cluster_poles()  →  classify_modes()
 - `label` — Theory dictionary key or `"unknown"`
 - `omega_mpm` — MPM frequency estimate
 - `omega_ref` — Reference frequency from theory dictionary
-- `amplitude` — Re-fitted amplitude
+- `amplitude` — Re-fitted amplitude (constant term A)
+- `amplitude_B` — Linear-in-t coefficient B; non-zero only for poly-group primaries
 - `re_std`, `im_std` — Frequency uncertainties
 - `cluster` — Originating `ClusterResult`
 
@@ -112,15 +114,43 @@ clusters = cluster_poles(data, signal, dt;
     ω_known   = [ω220],
     ε_complex = 0.02)
 
-# Match to theory
+# Match to theory (standard fit)
 theory = Dict("220" => ω220, "221" => 0.6934 - 0.2739im)
 modes  = classify_modes(clusters, theory, signal, dt)
 print_mode_table(modes)
+
+# If 221 and the nonlinear "220+220-220*" mode are nearly degenerate,
+# fit them as a single Jordan-block term (A + B·t)·exp(-i·ω₂₂₁·t):
+theory2 = Dict("220" => ω220, "221" => 0.6934 - 0.2739im,
+               "nl"  => 0.6930 - 0.2741im)
+modes2  = classify_modes(clusters, theory2, signal, dt;
+              poly_groups = [["221", "nl"]])
+print_mode_table(modes2)   # shows |A| and |B| columns
 
 # Visualize
 plot_stabilization(data)
 plot_complex_plane(data, modes)
 ```
+
+## Polynomial Amplitude Fitting (Jordan-Block Form)
+
+When two physical modes are nearly degenerate — closer in the complex plane than the MPM frequency resolution — they cannot be separated as independent exponentials. Their combined contribution in the ringdown behaves like a Jordan-block term:
+
+$$s(t) = (A + B \cdot t)\, e^{-i\omega t}$$
+
+Pass a `poly_groups` list to `classify_modes` to activate this fitting:
+
+```julia
+# Each group: first element = primary label (kept), rest = secondaries (suppressed)
+modes = classify_modes(clusters, theory, signal, dt;
+            poly_groups = [["221", "nl_mode"]])
+```
+
+- The **primary** (`"221"`) appears in the output with both `amplitude` (A) and `amplitude_B` (B).
+- The **secondaries** (`"nl_mode"`) are absorbed into the primary and excluded from the output.
+- A **single-element group** `["221"]` adds the B column without suppressing any other mode.
+- All non-grouped modes use the standard exponential form (B = 0).
+- `print_mode_table` automatically adds a `|B|` column when any mode has a non-zero B.
 
 ## Algorithm Details
 

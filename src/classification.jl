@@ -38,25 +38,27 @@ end
 Cluster matched to a reference frequency from a theory dictionary.
 
 # Fields
-- `label`     : string key from `theory_dict`, or `"unknown"`
-- `omega_mpm` : MPM estimate `re_mean + i·im_mean`
-- `omega_ref` : reference frequency (equals `omega_mpm` for `"unknown"`)
-- `amplitude` : complex amplitude (re-fitted simultaneously with all modes)
+- `label`       : string key from `theory_dict`, or `"unknown"`
+- `omega_mpm`   : MPM estimate `re_mean + i·im_mean`
+- `omega_ref`   : reference frequency (equals `omega_mpm` for `"unknown"`)
+- `amplitude`   : complex amplitude A (re-fitted simultaneously with all modes)
+- `amplitude_B` : linear coefficient; non-zero only for poly-group primaries
 - `re_std`, `im_std` : statistical uncertainties
-- `cluster`   : the originating `ClusterResult`
+- `cluster`     : the originating `ClusterResult`
 """
 struct LabeledMode
-    label      :: String
-    omega_mpm  :: ComplexF64
-    omega_ref  :: ComplexF64
-    amplitude  :: ComplexF64
-    re_std     :: Float64
-    im_std     :: Float64
-    cluster    :: ClusterResult
+    label       :: String
+    omega_mpm   :: ComplexF64
+    omega_ref   :: ComplexF64
+    amplitude   :: ComplexF64    # A: constant term
+    amplitude_B :: ComplexF64    # B: linear-in-t coefficient (zero for standard modes)
+    re_std      :: Float64
+    im_std      :: Float64
+    cluster     :: ClusterResult
 end
 
 """
-    classify_modes(clusters, theory_dict, signal, dt; tol=0.02) -> Vector{LabeledMode}
+    classify_modes(clusters, theory_dict, signal, dt; tol=0.02, poly_groups=[]) -> Vector{LabeledMode}
 
 Match accepted clusters to reference frequencies in `theory_dict` and
 re-fit amplitudes for all matched modes simultaneously.
@@ -72,13 +74,20 @@ re-fit amplitudes for all matched modes simultaneously.
 - `signal`       : original time series
 - `dt`           : sampling interval
 - `tol`          : maximum distance to assign a label (default 0.02)
+- `poly_groups`  : list of label groups for polynomial fitting. Each group is a
+                   `Vector{String}` where the first element is the primary label.
+                   Secondary labels (positions 2+) are excluded from the output
+                   and absorbed into `(A + B·t)·exp(-i·ω_primary·t)`. A single-
+                   element group adds only the B column (no secondary suppression).
+                   Default: `[]` (all modes use standard exponential form).
 
 The result is sorted by `Re(ω)` in descending order.
 """
 function classify_modes(clusters::Vector{ClusterResult},
                         theory_dict::Dict{String, ComplexF64},
                         signal, dt::Float64;
-                        tol::Float64 = 0.02)
+                        tol::Float64 = 0.02,
+                        poly_groups::Vector{Vector{String}} = Vector{String}[])
     # Step 1: label assignment
     candidates = LabeledMode[]
     for c in clusters
@@ -97,7 +106,8 @@ function classify_modes(clusters::Vector{ClusterResult},
             end
         end
         push!(candidates, LabeledMode(best_label, ω_mpm, best_omega,
-                                      zero(ComplexF64), c.re_std, c.im_std, c))
+                                      zero(ComplexF64), zero(ComplexF64),
+                                      c.re_std, c.im_std, c))
     end
 
     # Step 2: deduplicate (keep cluster with most poles per label)
@@ -117,20 +127,59 @@ function classify_modes(clusters::Vector{ClusterResult},
         end
     end
 
-    # Step 3: simultaneous amplitude re-fit
+    # Step 3: simultaneous amplitude re-fit (poly-group aware)
     sig   = ComplexF64.(signal)
     N_sig = length(sig)
-    K     = length(deduped)
-    if K > 0
-        V_mat = zeros(ComplexF64, N_sig, K)
-        for (k, r) in enumerate(deduped), n in 1:N_sig
-            V_mat[n, k] = exp(-im * r.omega_mpm * dt)^(n - 1)
+
+    # Build secondary-label suppression set and poly-primary set
+    secondary_labels = Set{String}()
+    poly_primary_set = Set{String}()
+    label_to_idx     = Dict(r.label => k for (k, r) in enumerate(deduped))
+
+    for grp in poly_groups
+        isempty(grp)                 && continue
+        haskey(label_to_idx, grp[1]) || continue  # skip if primary not found
+        push!(poly_primary_set, grp[1])
+        for sec in grp[2:end]
+            push!(secondary_labels, sec)
+        end
+    end
+
+    # Remove secondaries; track which remaining entries are poly primaries
+    kept    = [r for r in deduped if r.label ∉ secondary_labels]
+    is_poly = [r.label ∈ poly_primary_set for r in kept]
+
+    # Build column spec: (kept_index, :A) or (kept_index, :B)
+    col_map = Tuple{Int, Symbol}[]
+    for (k, _) in enumerate(kept)
+        push!(col_map, (k, :A))
+        is_poly[k] && push!(col_map, (k, :B))
+    end
+
+    if !isempty(col_map)
+        V_mat = zeros(ComplexF64, N_sig, length(col_map))
+        for (col, (k, kind)) in enumerate(col_map)
+            ω = kept[k].omega_mpm
+            z = exp(-im * ω * dt)
+            for n in 1:N_sig
+                zn = z^(n - 1)
+                V_mat[n, col] = kind === :A ? zn : (n - 1) * dt * zn
+            end
         end
         amps = V_mat \ sig
-        deduped = [LabeledMode(r.label, r.omega_mpm, r.omega_ref,
-                               amps[k], r.re_std, r.im_std, r.cluster)
-                   for (k, r) in enumerate(deduped)]
+
+        amp_A = zeros(ComplexF64, length(kept))
+        amp_B = zeros(ComplexF64, length(kept))
+        for (col, (k, kind)) in enumerate(col_map)
+            kind === :A ? (amp_A[k] = amps[col]) : (amp_B[k] = amps[col])
+        end
+
+        kept = [LabeledMode(r.label, r.omega_mpm, r.omega_ref,
+                            amp_A[k], amp_B[k], r.re_std, r.im_std, r.cluster)
+                for (k, r) in enumerate(kept)]
     end
+
+    deduped = kept
 
     sort!(deduped, by = r -> real(r.omega_mpm), rev=true)
     return deduped
@@ -142,14 +191,24 @@ end
 Print a formatted table of `LabeledMode` results to stdout.
 """
 function print_mode_table(modes::Vector{LabeledMode})
-    @printf("%-22s  %9s  %9s  %9s  %9s  %12s\n",
-            "Label", "Re(ω)", "Im(ω)", "δRe", "δIm", "|A|")
-    println("-"^76)
-    for m in modes
-        @printf("%-22s  %9.5f  %9.5f  %9.5f  %9.5f  %12.4e\n",
-                m.label,
-                real(m.omega_mpm), imag(m.omega_mpm),
-                m.re_std, m.im_std,
-                abs(m.amplitude))
+    has_poly = any(m -> abs(m.amplitude_B) > 0, modes)
+    if has_poly
+        @printf("%-22s  %9s  %9s  %9s  %9s  %12s  %12s\n",
+                "Label", "Re(ω)", "Im(ω)", "δRe", "δIm", "|A|", "|B|")
+        println("-"^92)
+        for m in modes
+            @printf("%-22s  %9.5f  %9.5f  %9.5f  %9.5f  %12.4e  %12.4e\n",
+                    m.label, real(m.omega_mpm), imag(m.omega_mpm),
+                    m.re_std, m.im_std, abs(m.amplitude), abs(m.amplitude_B))
+        end
+    else
+        @printf("%-22s  %9s  %9s  %9s  %9s  %12s\n",
+                "Label", "Re(ω)", "Im(ω)", "δRe", "δIm", "|A|")
+        println("-"^76)
+        for m in modes
+            @printf("%-22s  %9.5f  %9.5f  %9.5f  %9.5f  %12.4e\n",
+                    m.label, real(m.omega_mpm), imag(m.omega_mpm),
+                    m.re_std, m.im_std, abs(m.amplitude))
+        end
     end
 end
