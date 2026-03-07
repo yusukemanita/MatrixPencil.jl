@@ -58,7 +58,7 @@ struct LabeledMode
 end
 
 """
-    classify_modes(clusters, theory_dict, signal, dt; tol=0.02, poly_groups=[]) -> Vector{LabeledMode}
+    classify_modes(clusters, theory_dict, signal, dt; tol=0.02, poly_groups=[], use_ref_freq=true) -> Vector{LabeledMode}
 
 Match accepted clusters to reference frequencies in `theory_dict` and
 re-fit amplitudes for all matched modes simultaneously.
@@ -69,17 +69,21 @@ re-fit amplitudes for all matched modes simultaneously.
 3. Re-fit amplitudes via Vandermonde least squares on the full `signal`.
 
 # Arguments
-- `clusters`     : output of `cluster_poles`
-- `theory_dict`  : `Dict{String, ComplexF64}` of reference frequencies
-- `signal`       : original time series
-- `dt`           : sampling interval
-- `tol`          : maximum distance to assign a label (default 0.02)
-- `poly_groups`  : list of label groups for polynomial fitting. Each group is a
-                   `Vector{String}` where the first element is the primary label.
-                   Secondary labels (positions 2+) are excluded from the output
-                   and absorbed into `(A + B·t)·exp(-i·ω_primary·t)`. A single-
-                   element group adds only the B column (no secondary suppression).
-                   Default: `[]` (all modes use standard exponential form).
+- `clusters`      : output of `cluster_poles`
+- `theory_dict`   : `Dict{String, ComplexF64}` of reference frequencies
+- `signal`        : original time series
+- `dt`            : sampling interval
+- `tol`           : maximum distance to assign a label (default 0.02)
+- `poly_groups`   : list of label groups for polynomial fitting. Each group is a
+                    `Vector{String}` where the first element is the primary label.
+                    Secondary labels (positions 2+) are excluded from the output
+                    and absorbed into `(A + B·t)·exp(-i·ω_primary·t)`. A single-
+                    element group adds only the B column (no secondary suppression).
+                    Default: `[]` (all modes use standard exponential form).
+- `use_ref_freq`  : if `true` (default), labeled modes use `omega_ref` in the
+                    Vandermonde matrix; unknown modes always use `omega_mpm`.
+                    Set to `false` to use `omega_mpm` for all modes (exploratory
+                    analysis where MPM estimates are trusted over theory values).
 
 The result is sorted by `Re(ω)` in descending order.
 """
@@ -87,7 +91,8 @@ function classify_modes(clusters::Vector{ClusterResult},
                         theory_dict::Dict{String, ComplexF64},
                         signal, dt::Float64;
                         tol::Float64 = 0.02,
-                        poly_groups::Vector{Vector{String}} = Vector{String}[])
+                        poly_groups::Vector{Vector{String}} = Vector{String}[],
+                        use_ref_freq::Bool = true)
     # Step 1: label assignment
     candidates = LabeledMode[]
     for c in clusters
@@ -159,7 +164,8 @@ function classify_modes(clusters::Vector{ClusterResult},
     if !isempty(col_map)
         V_mat = zeros(ComplexF64, N_sig, length(col_map))
         for (col, (k, kind)) in enumerate(col_map)
-            ω = kept[k].omega_mpm
+            r = kept[k]
+            ω = (use_ref_freq && r.label != "unknown") ? r.omega_ref : r.omega_mpm
             z = exp(-im * ω * dt)
             for n in 1:N_sig
                 zn = z^(n - 1)
