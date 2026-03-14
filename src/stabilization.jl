@@ -37,8 +37,10 @@ function stabilization_data(signal, dt, M_range;
     all_stable = Bool[]
     prev_poles = ComplexF64[]
 
+    L = length(signal) ÷ 2
+
     for M in M_range
-        L = length(signal) ÷ 2
+        M >= L && continue
         poles, amps = matrix_pencil_method(signal, L, dt, M; method)
 
         mask  = (im_lim[1] .< imag.(poles) .< im_lim[2]) .&

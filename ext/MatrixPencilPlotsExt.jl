@@ -19,8 +19,12 @@ function plot_stabilization(data;
                             omegas_ref = ComplexF64[],
                             re_lim     = (-2.0, 2.0),
                             im_lim     = (-0.5, 0.0),
-                            title_str  = "Stabilization diagram",
-                            ms         = 3)
+                            title      = "",
+                            dpi        = 100,
+                            ms         = 3,
+                            size       = (700, 500),
+                            fontfamily = "Times New Roman",
+                            legend     = :topright,)
     nm, sm = .!data.stable, data.stable
 
     p = scatter(data.re[nm], data.M[nm];
@@ -28,16 +32,16 @@ function plot_stabilization(data;
         label = "",
         xlabel = L"\mathrm{Re}(\omega)",
         ylabel = L"M",
-        title  = title_str,
+        title  = title,
         frame  = :box, xlim = re_lim,
-        legend = :topright,
-        fontfamily     = "Times New Roman",
+        legend = legend,
         tickfontsize   = 11,
         guidefontsize  = 13,
         legendfontsize = 10,
         titlefontsize  = 13,
-        size           = (700, 500),
-        dpi            = 300,
+        fontofamily    = fontfamily,
+        size           = size,
+        dpi            = dpi,
         left_margin    = 5Plots.mm,
         bottom_margin  = 5Plots.mm,
         top_margin     = 5Plots.mm,
@@ -74,7 +78,12 @@ function plot_complex_plane(data, modes;
                             theory_dict = Dict{String, ComplexF64}(),
                             re_lim      = (-1.5, 1.5),
                             im_lim      = (-0.5, 0.0),
-                            title_str   = "MPM poles in the complex ω plane")
+                            title      = "",
+                            dpi        = 100,
+                            ms         = 3,
+                            size       = (700, 500),
+                            fontfamily = "Times New Roman",
+                            legend     = :topright,)
     nm     = .!data.stable
     sm     =  data.stable
     ms_all = MatrixPencil._amp_to_ms(data.amp)
@@ -85,16 +94,16 @@ function plot_complex_plane(data, modes;
         label = "",
         xlabel = L"\mathrm{Re}(\omega)",
         ylabel = L"\mathrm{Im}(\omega)",
-        title  = title_str,
+        title  = title,
         frame  = :box, xlim = re_lim, ylim = im_lim,
-        legend = :topright,
-        fontfamily     = "Times New Roman",
+        legend = legend,
+        fontfamily     = fontfamily,
         tickfontsize   = 11,
         guidefontsize  = 13,
         legendfontsize = 10,
         titlefontsize  = 13,
-        size           = (700, 500),
-        dpi            = 300,
+        size           = size,
+        dpi            = dpi,
         left_margin    = 5Plots.mm,
         bottom_margin  = 5Plots.mm,
         top_margin     = 5Plots.mm,

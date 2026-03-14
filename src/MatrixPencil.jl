@@ -41,6 +41,7 @@ include("rational_filter.jl")
 include("stabilization.jl")
 include("classification.jl")
 include("clustering.jl")
+include("t0_scan.jl")
 
 export matrix_pencil_method
 export rational_filter, signal_cleaning
@@ -48,6 +49,8 @@ export stabilization_data
 export ClusterResult, LabeledMode
 export cluster_poles
 export classify_modes, print_mode_table
+export T0ModeResult, T0ScanResult
+export time_window, t0_scan, print_t0_scan_table
 
 # Plotting stubs — implemented in MatrixPencilPlotsExt when Plots.jl is loaded
 function plot_stabilization end
