@@ -23,7 +23,7 @@ function plot_stabilization(data;
                             dpi        = 100,
                             ms         = 3,
                             size       = (700, 500),
-                            fontfamily = "Times New Roman",
+                            fontfamily = "Computer Modern",
                             legend     = :topright,)
     nm, sm = .!data.stable, data.stable
 
@@ -39,7 +39,7 @@ function plot_stabilization(data;
         guidefontsize  = 13,
         legendfontsize = 10,
         titlefontsize  = 13,
-        fontofamily    = fontfamily,
+        fontfamily    = fontfamily,
         size           = size,
         dpi            = dpi,
         left_margin    = 5Plots.mm,
@@ -82,7 +82,7 @@ function plot_complex_plane(data, modes;
                             dpi        = 100,
                             ms         = 3,
                             size       = (700, 500),
-                            fontfamily = "Times New Roman",
+                            fontfamily = "Computer Modern",
                             legend     = :topright,)
     nm     = .!data.stable
     sm     =  data.stable
@@ -142,7 +142,7 @@ function plot_complex_plane(data, modes;
             ms = 6, color = :black, markerstrokewidth = 0,
             marker = :circle, label = "")
         annotate!(p, real(ω), imag(ω) - dy,
-                  text(m.label, 9, :black, :center, "Times New Roman"))
+                  text(m.label, 9, :black, :center, fontfamily))
     end
 
     return p
