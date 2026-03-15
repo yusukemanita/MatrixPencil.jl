@@ -37,14 +37,12 @@ using Printf
 using FFTW
 
 include("mpm.jl")
-include("rational_filter.jl")
 include("stabilization.jl")
 include("classification.jl")
 include("clustering.jl")
 include("t0_scan.jl")
 
 export matrix_pencil_method
-export rational_filter, signal_cleaning
 export stabilization_data
 export ClusterResult, LabeledMode
 export cluster_poles
